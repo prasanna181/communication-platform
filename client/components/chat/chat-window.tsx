@@ -15,7 +15,7 @@ interface Message {
 }
 
 interface ChatWindowProps {
-  chatId: string;
+  chatId: number;
   receiverId: number;
 }
 
@@ -77,7 +77,7 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
       setLoading(true);
 
       const response: any = await apiCall({
-        endPoint: `messages/${receiverId}`,
+        endPoint: `messages/${chatId}`,
         method: "GET",
         params: {
           page: 1,
@@ -85,19 +85,20 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
         },
       });
 
+      const currentUserId = await Utils.getItem("id");
       if (response.success && response.data) {
         setMessages(
           response.data.messages
             .map((msg: any) => ({
               id: msg.id,
               sender:
-                msg.senderId === Utils.getItem("id") ? "You" : msg.senderName,
+                msg.senderId == Number(currentUserId) ? "You" : msg?.user?.name,
               text: msg.message,
               timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               }),
-              isOwn: msg.senderId === Utils.getItem("id"),
+              isOwn: msg.senderId == Number(currentUserId),
               status: "read",
             }))
             .reverse()
@@ -128,54 +129,58 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
     }
   };
 
-  const groupedMessages = messages.reduce((acc, msg, idx) => {
-    const lastGroup = acc[acc.length - 1];
-    if (
-      lastGroup &&
-      lastGroup[0].sender === msg.sender &&
-      lastGroup[0].isOwn === msg.isOwn
-    ) {
+  const groupedMessages = messages.reduce((groups, msg) => {
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup[0].isOwn === msg.isOwn) {
       lastGroup.push(msg);
     } else {
-      acc.push([msg]);
+      groups.push([msg]);
     }
-    return acc;
+
+    return groups;
   }, [] as Message[][]);
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
-      {groupedMessages.map((group, groupIdx) => (
+      {groupedMessages.map((group, index) => (
         <div
-          key={groupIdx}
-          className={`flex ${group[0].isOwn ? "justify-end" : "justify-start"}`}
+          key={index}
+          className={`flex ${group[0].isOwn ? "justify-start" : "justify-end"}`}
         >
-          <div className="space-y-1 max-w-xs">
+          <div className="max-w-xs space-y-1">
+            {/* show sender name for OTHER user */}
+            {!group[0].isOwn && (
+              <p className="text-xs text-text-tertiary mb-1">
+                {group[0].sender}
+              </p>
+            )}
+
+            {/* message bubbles */}
             {group.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.isOwn ? "justify-end" : "justify-start"
-                } gap-2`}
-              >
+              <div key={msg.id} className="flex items-end gap-2">
                 <div
-                  className={`px-4 py-2 rounded-lg ${
+                  className={`px-4 py-2 rounded-lg text-sm ${
                     msg.isOwn
-                      ? "bg-accent text-white rounded-br-none"
-                      : "bg-primary-lighter text-foreground rounded-bl-none"
+                      ? "bg-primary-lighter text-foreground rounded-bl-none"
+                      : "bg-accent text-white rounded-br-none"
                   }`}
                 >
-                  <p className="text-sm">{msg.text}</p>
+                  {msg.text}
                 </div>
-                {msg.isOwn && (
+
+                {!msg.isOwn && (
                   <div className="flex items-end pb-1">
                     {getStatusIcon(msg.status)}
                   </div>
                 )}
               </div>
             ))}
+
+            {/* timestamp */}
             <p
               className={`text-xs ${
-                group[0].isOwn ? "text-right" : "text-left"
+                group[0].isOwn ? "text-left" : "text-right"
               } text-text-tertiary`}
             >
               {group[group.length - 1].timestamp}
@@ -183,30 +188,6 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
           </div>
         </div>
       ))}
-
-      {isTyping && (
-        <div className="flex justify-start">
-          <div className="bg-primary-lighter text-foreground px-4 py-2 rounded-lg rounded-bl-none">
-            <div className="flex gap-1">
-              <div
-                className="w-2 h-2 bg-text-tertiary rounded-full animate-bounce"
-                style={{ animationDelay: "0ms" }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-text-tertiary rounded-full animate-bounce"
-                style={{ animationDelay: "150ms" }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-text-tertiary rounded-full animate-bounce"
-                style={{ animationDelay: "300ms" }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Auto-scroll spacer */}
-      <div className="flex-1" />
     </div>
   );
 }

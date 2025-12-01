@@ -1,29 +1,49 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Send, Paperclip, Smile, Phone, Video, MoreVertical } from "lucide-react"
-import ChatList from "./chat-list"
-import ChatWindow from "./chat-window"
+import { useEffect, useState } from "react";
+import {
+  Send,
+  Paperclip,
+  Smile,
+  Phone,
+  Video,
+  MoreVertical,
+} from "lucide-react";
+import ChatList, { IChatList } from "./chat-list";
+import ChatWindow from "./chat-window";
+import { apiCall } from "@/lib/services/api-client";
 
 export default function ChatInterface() {
-  const [selectedChat, setSelectedChat] = useState<string | null>("chat-1")
-  const [message, setMessage] = useState("")
+  const [selectedChat, setSelectedChat] = useState<IChatList | null>(null);
+  const [message, setMessage] = useState("");
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (message.trim()) {
-      console.log("Sending message:", message)
-      setMessage("")
-    }
-  }
+      console.log("Sending message:", message);
+      try {
+        const response = await apiCall({
+          endPoint: "messages/send",
+          method: "POST",
+          data: { message, conversationId: selectedChat?.chatId },
+          isMultipart: false,
+        });
+      } catch (error) {
+        console.error("Error in sending message", error);
+      }
 
-  const chatDetails: Record<string, { name: string; status: string; avatar: string }> = {
+      setMessage("");
+    }
+  };
+
+  const chatDetails: Record<
+    string,
+    { name: string; status: string; avatar: string }
+  > = {
     "chat-1": { name: "John Doe", status: "Active now", avatar: "👤" },
     "chat-2": { name: "Team Project", status: "3 members", avatar: "👥" },
     "chat-3": { name: "Sarah Smith", status: "Active 2m ago", avatar: "👤" },
     "chat-4": { name: "Design Team", status: "5 members", avatar: "👥" },
-  }
-
-  const currentChat = selectedChat ? chatDetails[selectedChat] : null
+  };
 
   return (
     <div className="flex h-full bg-background">
@@ -35,10 +55,14 @@ export default function ChatInterface() {
         <div className="flex-1 flex flex-col">
           <div className="border-b border-border p-4 bg-primary-light flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">{currentChat?.avatar}</div>
+              {/* <div className="text-2xl">{currentChat?.avatar}</div> */}
               <div>
-                <h2 className="font-semibold text-foreground">{currentChat?.name}</h2>
-                <p className="text-xs text-text-tertiary">{currentChat?.status}</p>
+                <h2 className="font-semibold text-foreground">
+                  {selectedChat?.name}
+                </h2>
+                {/* <p className="text-xs text-text-tertiary">
+                  {currentChat?.status}
+                </p> */}
               </div>
             </div>
             <div className="flex gap-2">
@@ -54,7 +78,10 @@ export default function ChatInterface() {
             </div>
           </div>
 
-          <ChatWindow chatId={selectedChat} />
+          <ChatWindow
+            chatId={selectedChat.chatId}
+            receiverId={selectedChat.userId}
+          />
 
           {/* Message Input */}
           <div className="border-t border-border p-4 bg-primary-light">
@@ -100,5 +127,5 @@ export default function ChatInterface() {
         </div>
       )}
     </div>
-  )
+  );
 }
