@@ -19,6 +19,9 @@ export default function Sidebar({ currentView, setCurrentView, userRole, setUser
 
   const handleLogOut= async()=>{
     Utils.removeItem('authToken');
+    Utils.removeItem('role');
+    Utils.removeItem("name");
+    Utils.removeItem("id");
     router.push('/login')
   }
 

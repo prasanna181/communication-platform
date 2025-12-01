@@ -18,7 +18,7 @@ const router = express.Router();
 const validator = createValidator({});
 
 router.post(
-  "/create_admin",
+  "/admin",
   validator.body(createOrLoginAdminSchema),
   apiCallWrapper(createOrLoginAdmin)
 );
@@ -28,6 +28,6 @@ router.post(
   apiCallWrapper(signup)
 );
 router.post("/login", validator.body(userLoginSchema), apiCallWrapper(login));
-router.get("/all_users", adminMiddleware, apiCallWrapper(getAllUsers));
+router.get("/all_users", apiCallWrapper(getAllUsers));
 
 export default router;

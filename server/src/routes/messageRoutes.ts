@@ -10,22 +10,27 @@ import {
   sendMessage,
 } from "../controllers/messageController";
 import { authMiddleware } from "../middlewares/authMiddleware";
+import { apiCallWrapper } from "../util/apiResponse";
 
 const router = express.Router();
 const validator = createValidator({});
 
 router.post(
-  "/create_room",
+  "/create_group_room",
   authMiddleware,
   validator.body(createRoomSchema),
-  createConversationRoom
+  apiCallWrapper(createConversationRoom)
 );
 router.post(
   "/send",
   authMiddleware,
   validator.body(sendMessageSchema),
-  sendMessage
+  apiCallWrapper(sendMessage)
 );
-router.get("/:conversationId", authMiddleware, getMessageByRoomId);
+router.get(
+  "/:conversationId",
+  authMiddleware,
+  apiCallWrapper(getMessageByRoomId)
+);
 
 export default router;

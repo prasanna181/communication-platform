@@ -45,6 +45,7 @@ export default function LoginPage() {
         Utils.setItem("authToken", response.data?.token);
         Utils.setItem("id", response.data.user.id);
         Utils.setItem("role", response.data.user.role);
+        Utils.setItem("name", response.data.user.name);
         router.push("/dashboard");
       } else if (!response.success) {
         setError(response.message);

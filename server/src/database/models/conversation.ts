@@ -18,7 +18,7 @@ class Conversation extends Model<
 > {
   declare id: number;
   declare type: string;
-  declare roomName: string | null;
+  declare name: string | null;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -35,7 +35,7 @@ Conversation.init(
       defaultValue: CONVERSATION_TYPE.SINGLE,
       allowNull: false,
     },
-    roomName: {
+    name: {
       type: DataTypes.STRING,
       allowNull: true,
     },

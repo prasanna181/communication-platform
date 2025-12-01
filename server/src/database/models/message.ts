@@ -68,4 +68,9 @@ Message.init(
   }
 );
 
+Message.belongsTo(User,{
+  foreignKey: "senderId",
+  as: "user"
+})
+
 export default Message;
