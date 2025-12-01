@@ -63,6 +63,9 @@ export const getAllUsers = async (req, res) => {
   const offset = (page - 1) * limit;
 
   const { count, rows } = await User.findAndCountAll({
+    where: {
+      role: USER_ROLES.USER,
+    },
     limit,
     offset,
     order: [["createdAt", "DESC"]],

@@ -68,4 +68,14 @@ Conversation.hasMany(ConversationMember, {
   as: "members",
 });
 
+ConversationMember.belongsTo(Conversation, {
+  foreignKey: "conversationId",
+  as: "conversations",
+});
+
+ConversationMember.belongsTo(User,{
+  foreignKey: "userId",
+  as: "user"
+})
+
 export default ConversationMember;

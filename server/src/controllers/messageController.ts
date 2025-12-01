@@ -5,57 +5,29 @@ import Conversation, {
 } from "../database/models/conversation";
 import ConversationMember from "../database/models/conversationMember";
 import { errorResponse, successResponse } from "../util/apiResponse";
+import User from "../database/models/user";
 
 export const createConversationRoom = async (req, res) => {
   const senderId = req.user.id;
-  const { conversationType, receiverId, memberIds = [], name } = req.body;
+  const { memberIds = [], name } = req.body;
 
   let conversation;
 
-  if (conversationType === CONVERSATION_TYPE.SINGLE) {
-    conversation = await Conversation.findOne({
-      where: { type: CONVERSATION_TYPE.SINGLE },
-      include: [
-        {
-          model: ConversationMember,
-          as: "members",
-          where: { userId: senderId },
-        },
-        {
-          model: ConversationMember,
-          as: "members",
-          where: { userId: receiverId },
-        },
-      ],
-    });
+  conversation = await Conversation.create({
+    type: CONVERSATION_TYPE.GROUP,
+    name: name || "New Group",
+  });
 
-    if (!conversation) {
-      conversation = await Conversation.create({
-        type: CONVERSATION_TYPE.SINGLE,
-      });
-
-      await ConversationMember.bulkCreate([
-        { conversationId: conversation.id, userId: senderId },
-        { conversationId: conversation.id, userId: receiverId },
-      ]);
-    }
-  } else if (conversationType === CONVERSATION_TYPE.GROUP) {
-    conversation = await Conversation.create({
-      type: CONVERSATION_TYPE.GROUP,
-      roomName: name || "New Group",
-    });
-
-    if (!memberIds.includes(senderId)) {
-      memberIds.push(senderId);
-    }
-
-    const memberRows = memberIds.map((userId) => ({
-      conversationId: conversation.id,
-      userId,
-    }));
-
-    await ConversationMember.bulkCreate(memberRows);
+  if (!memberIds.includes(senderId)) {
+    memberIds.push(senderId);
   }
+
+  const memberRows = memberIds.map((userId) => ({
+    conversationId: conversation.id,
+    userId,
+  }));
+
+  await ConversationMember.bulkCreate(memberRows);
 
   return successResponse(res, "Conversation Room is created successfully.", {
     conversationId: conversation.id,
@@ -105,6 +77,13 @@ export const getMessageByRoomId = async (req, res) => {
       },
       conversationId,
     },
+
+    include: [
+      {
+        model: User,
+        as: "user",
+      },
+    ],
 
     limit,
     offset,

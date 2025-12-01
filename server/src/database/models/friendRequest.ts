@@ -19,8 +19,8 @@ class FriendRequest extends Model<
   InferCreationAttributes<FriendRequest>
 > {
   declare id: number;
-  declare userId: number;
-  declare friendId: number;
+  declare userId: number;       // sender
+  declare friendId: number;    // receiver
   declare status: string;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -83,7 +83,7 @@ User.hasMany(FriendRequest, {
 
 FriendRequest.belongsTo(User, {
   foreignKey: "friendId",
-  as: "friends",
+  as: "friend",
 });
 
 export default FriendRequest;

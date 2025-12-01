@@ -2,16 +2,6 @@ import Joi from "joi";
 import { CONVERSATION_TYPE } from "../database/models/conversation";
 
 export const createRoomSchema = Joi.object({
-  CONVERSATION_TYPE: Joi.string()
-    .valid(CONVERSATION_TYPE.SINGLE, CONVERSATION_TYPE.GROUP)
-    .required(),
-
-  receiverId: Joi.when("conversationType", {
-    is: CONVERSATION_TYPE.SINGLE,
-    then: Joi.number().integer().required(),
-    otherwise: Joi.forbidden(),
-  }),
-
   memberIds: Joi.when("conversationType", {
     is: CONVERSATION_TYPE.GROUP,
     then: Joi.array().items(Joi.number().integer()).min(1).required(),

@@ -1,3 +1,6 @@
+import FriendRequest, {
+  FREINDSHIP_REQUEST_STATUS,
+} from "../database/models/friendRequest";
 import User, { USER_ROLES } from "../database/models/user";
 import { generateAccessToken } from "../util/jwtUtil";
 import { checkIfUserDoNotExists } from "../util/userUtil";
@@ -37,6 +40,12 @@ export const signupService = async (payload): Promise<Response> => {
     email,
     role: user.role,
     id: user.id,
+  });
+
+  await FriendRequest.create({
+    userId: user.id,
+    friendId: user.id,
+    status: FREINDSHIP_REQUEST_STATUS.APPROVED,
   });
 
   return {
