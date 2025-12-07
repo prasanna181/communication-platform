@@ -11,6 +11,8 @@ import {
 } from "../controllers/messageController";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { apiCallWrapper } from "../util/apiResponse";
+import { upload } from "../middlewares/upload";
+import { sendFileMessage } from "../controllers/messageController";
 
 const router = express.Router();
 const validator = createValidator({});
@@ -27,6 +29,14 @@ router.post(
   validator.body(sendMessageSchema),
   apiCallWrapper(sendMessage)
 );
+
+router.post(
+  "/send-file/:conversationId",
+  authMiddleware,
+  upload.single("file"),
+  sendFileMessage
+);
+
 router.get(
   "/:conversationId",
   authMiddleware,
