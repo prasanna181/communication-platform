@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Check, CheckCheck, Clock } from "lucide-react";
 import { apiCall } from "@/lib/services/api-client";
 import { Utils } from "@/lib/services/storage";
+import { socket } from "@/lib/services/socket";
 
 interface Message {
   id: number;
@@ -11,6 +12,11 @@ interface Message {
   text: string;
   timestamp: string;
   isOwn: boolean;
+  type?: string;
+  originalName?: string;
+  fileType?: string;
+  fileSize?: string;
+
   status?: "sending" | "sent" | "delivered" | "read";
 }
 
@@ -56,53 +62,170 @@ const mockMessages: Message[] = [
 
 export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>(mockMessages);
-  const [isTyping, setIsTyping] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const skipAutoScrollRef = useRef(false);
+    const firstLoadRef = useRef(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => setIsTyping(false), 2000);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (skipAutoScrollRef.current) {
+      skipAutoScrollRef.current = false;
+      return;
+    }
+
+    if (firstLoadRef.current) {
+      scrollToBottom();
+      firstLoadRef.current = false; // only first load
+    }
+  }, [messages]);
+
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     setIsTyping(true);
+  //     setTimeout(() => setIsTyping(false), 2000);
+  //   }, 3000);
+  //   return () => clearTimeout(timer);
+  // }, []);
 
   useEffect(() => {
-    getAllMessages();
+    if (!chatId) return;
+    setPage(1);
+    setHasMore(true);
+      firstLoadRef.current = true;
+    getAllMessages(1);
+
+    console.log("Joining room:", chatId);
+    socket.emit("join_conversation", chatId);
   }, [chatId]);
 
-  const getAllMessages = async () => {
+  useEffect(() => {
+    if (!chatId) return;
+
+    let isMounted = true;
+
+    const handleNewMessage = async (msg: any) => {
+      console.log("New message received:", msg);
+
+      const currentUserId = Number(await Utils.getItem("id"));
+
+      if (!isMounted) return;
+
+      console.log(msg, "........................msg,,,,,,,hello");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: msg.id,
+          sender:
+            msg.senderId == Number(currentUserId)
+              ? "You"
+              : msg?.user?.name || "User",
+          text: msg.message,
+          type: msg.type,
+          fileType: msg.fileType,
+          fileSize: msg.fileSize,
+          originalName: msg.originalName,
+          timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          isOwn: msg.senderId == Number(currentUserId),
+          status: "sent",
+        },
+      ]);
+    };
+
+    socket.on("new_message", handleNewMessage);
+
+    return () => {
+      isMounted = false;
+      socket.off("new_message", handleNewMessage); // CLEANUP
+    };
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    socket.on("typing", (data) => {
+      if (Number(data.conversationId) != Number(chatId)) return;
+      console.log(
+        data.conversationId,
+        Number(chatId),
+        "...............ids for chat inside typing event"
+      );
+      setOtherUserTyping(true);
+    });
+
+    socket.on("stop_typing", (data) => {
+      if (data.conversationId != Number(chatId)) return;
+      setOtherUserTyping(false);
+    });
+
+    return () => {
+      socket.off("typing");
+      socket.off("stop_typing");
+    };
+  }, [chatId]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const getAllMessages = async (pageNumber: number) => {
     try {
       setLoading(true);
+
+      if (!chatId || loadingMoreRef.current) return;
+
+      loadingMoreRef.current = true;
 
       const response: any = await apiCall({
         endPoint: `messages/${chatId}`,
         method: "GET",
         params: {
-          page: 1,
+          page: pageNumber,
           perPage: 20,
         },
       });
 
       const currentUserId = await Utils.getItem("id");
       if (response.success && response.data) {
-        setMessages(
-          response.data.messages
-            .map((msg: any) => ({
-              id: msg.id,
-              sender:
-                msg.senderId == Number(currentUserId) ? "You" : msg?.user?.name,
-              text: msg.message,
-              timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              isOwn: msg.senderId == Number(currentUserId),
-              status: "read",
-            }))
-            .reverse()
-        );
+        let newMessages = response.data.messages
+          .map((msg: any) => ({
+            id: msg.id,
+            sender:
+              msg.senderId == Number(currentUserId) ? "You" : msg?.user?.name,
+            text: msg.message,
+            type: msg.type,
+            fileType: msg.fileType,
+            fileSize: msg.fileSize,
+            originalName: msg.originalName,
+            timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            isOwn: msg.senderId == Number(currentUserId),
+            status: "read",
+          }))
+          .reverse();
+
+        if (pageNumber === 1) {
+          setMessages(newMessages);
+        } else {
+          skipAutoScrollRef.current = true;
+          setMessages((prev) => [...newMessages, ...prev]);
+        }
+
+        if (newMessages.length < 20) setHasMore(false);
+
+        loadingMoreRef.current = false;
       } else if (!response.success) {
         setError(response.message);
       }
@@ -112,6 +235,72 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderMessageContent = (msg: Message) => {
+    // FILE MESSAGE
+    if (msg.type === "file") {
+      // IMAGE
+      if (msg.fileType?.startsWith("image/")) {
+        return (
+          <img
+            src={msg.text}
+            alt="image"
+            className="rounded-lg max-w-[200px] cursor-pointer"
+          />
+        );
+      }
+
+      // VIDEO
+      if (msg.fileType?.startsWith("video/")) {
+        return (
+          <video controls className="max-w-[200px] rounded-lg">
+            <source src={msg.text} type={msg.fileType} />
+          </video>
+        );
+      }
+
+      // PDF OR OTHER DOCUMENTS
+      return (
+        <a
+          href={msg.text}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-blue-500"
+        >
+          📄 {msg.originalName || "Download File"}
+        </a>
+      );
+    }
+
+    // TEXT MESSAGE
+    return <p>{msg.text}</p>;
+  };
+
+  const handleScroll = () => {
+    if (!containerRef.current || !hasMore) return;
+
+    // If user reached top
+    if (containerRef.current.scrollTop === 0) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      preserveScrollPositionWhileLoading(nextPage);
+    }
+  };
+
+  const preserveScrollPositionWhileLoading = async (nextPage: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const oldHeight = container.scrollHeight;
+
+    await getAllMessages(nextPage);
+
+    // Wait frame
+    requestAnimationFrame(() => {
+      const newHeight = container.scrollHeight;
+      container.scrollTop = newHeight - oldHeight;
+    });
   };
 
   const getStatusIcon = (status?: string) => {
@@ -142,7 +331,17 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
   }, [] as Message[][]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col"
+    >
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="w-14 h-14 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
       {groupedMessages.map((group, index) => (
         <div
           key={index}
@@ -150,11 +349,8 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
         >
           <div className="max-w-xs space-y-1">
             {/* show sender name for OTHER user */}
-            {!group[0].isOwn && (
-              <p className="text-xs text-text-tertiary mb-1">
-                {group[0].sender}
-              </p>
-            )}
+
+            <p className="text-xs text-text-tertiary mb-1">{group[0].sender}</p>
 
             {/* message bubbles */}
             {group.map((msg) => (
@@ -166,7 +362,7 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
                       : "bg-accent text-white rounded-br-none"
                   }`}
                 >
-                  {msg.text}
+                  {renderMessageContent(msg)}
                 </div>
 
                 {!msg.isOwn && (
@@ -188,6 +384,14 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
           </div>
         </div>
       ))}
+      {otherUserTyping && (
+        <div className="flex gap-1 text-text-tertiary ml-2">
+          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span>
+          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></span>
+        </div>
+      )}
+      <div ref={messagesEndRef} />
     </div>
   );
 }

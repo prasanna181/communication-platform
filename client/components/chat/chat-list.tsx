@@ -1,9 +1,10 @@
 "use client";
 
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, UserPlusIcon, Users } from "lucide-react";
 import { apiCall } from "@/lib/services/api-client";
 import { useEffect, useState } from "react";
 import { Utils } from "@/lib/services/storage";
+import { useRouter } from "next/navigation";
 
 interface ChatListProps {
   selectedChat: IChatList | null;
@@ -54,6 +55,8 @@ export default function ChatList({
 }: ChatListProps) {
   const [chatList, setChatList] = useState<IChatList[]>();
 
+  const router= useRouter();
+
   const getAllChatList = async () => {
     const response = await apiCall({
       endPoint: "friends/chat_lists",
@@ -96,9 +99,21 @@ export default function ChatList({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Messages</h2>
+
+          <button
+            onClick={() => router.push("/friends")}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded hover:bg-accent-hover"
+          >
+            <Users size={20} />
+            Friends
+          </button>
+
           <button className="p-2 hover:bg-primary-lighter rounded-lg transition-colors">
             <Plus size={20} />
           </button>
+          {/* <button onClick={() => setShowFriendsModal(true)}>
+            <UserPlusIcon />
+          </button> */}
         </div>
 
         {/* Search */}

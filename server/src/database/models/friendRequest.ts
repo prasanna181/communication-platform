@@ -24,6 +24,8 @@ class FriendRequest extends Model<
   declare status: string;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
+  declare friend?: User;
+  declare user?: User;
 }
 
 FriendRequest.init(
@@ -85,5 +87,10 @@ FriendRequest.belongsTo(User, {
   foreignKey: "friendId",
   as: "friend",
 });
+
+FriendRequest.belongsTo(User,{
+  foreignKey: "userId",
+  as:"user"
+})
 
 export default FriendRequest;

@@ -6,6 +6,10 @@ import Conversation, {
 import ConversationMember from "../database/models/conversationMember";
 import { errorResponse, successResponse } from "../util/apiResponse";
 import User from "../database/models/user";
+import {
+  sendFileMessageService,
+  sendMessageService,
+} from "../services/messageService";
 
 export const createConversationRoom = async (req, res) => {
   const senderId = req.user.id;
@@ -38,18 +42,16 @@ export const sendMessage = async (req, res) => {
   const { message, conversationId } = req.body;
   const { id: senderId } = req.user;
 
-  const isConversationIdValid = await Conversation.findByPk(conversationId);
-
-  if (!isConversationIdValid)
-    return errorResponse(res, "Conversation id is invalid.", 404);
-
-  const messageRecord = await Message.create({
+  const response = await sendMessageService({
     senderId,
     conversationId,
     message,
   });
 
-  return successResponse(res, "Message sent successfully.", messageRecord);
+  if (!response.success)
+    return errorResponse(res, response.error, response.statusCode);
+
+  return successResponse(res, "Message sent successfully.", response.data);
 };
 
 export const getMessageByRoomId = async (req, res) => {
@@ -96,4 +98,32 @@ export const getMessageByRoomId = async (req, res) => {
     perPage: limit,
     messages: rows,
   });
+};
+
+export const sendFileMessage = async (req, res) => {
+  const { conversationId } = req.params;
+  const { id: senderId } = req.user;
+
+  if (!req.file) return errorResponse(res, "File is required", 400);
+
+  const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${
+    req.file.filename
+  }`;
+
+  const fileData = {
+    fileUrl,
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    fileSize: req.file.size,
+  };
+
+  const response = await sendFileMessageService({
+    senderId,
+    conversationId,
+    fileData,
+  });
+
+  console.log(response,"..............response")
+
+  return successResponse(res, "File sent", response.data);
 };

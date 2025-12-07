@@ -16,9 +16,19 @@ class Message extends Model<
   declare id: number;
   declare senderId: number;
   declare conversationId: number;
-  declare message: Text;
+  declare message: string;
+  declare type: string;
+  declare fileType: string;
+  declare fileSize: number;
+  declare originalName: string;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
+  declare user?: User;
+}
+
+export enum MESSAGE_TYPE {
+  TEXT = "text",
+  FILE = "file",
 }
 
 Message.init(
@@ -52,6 +62,23 @@ Message.init(
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: MESSAGE_TYPE.TEXT,
+    },
+    fileType: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    fileSize: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    originalName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -68,9 +95,9 @@ Message.init(
   }
 );
 
-Message.belongsTo(User,{
+Message.belongsTo(User, {
   foreignKey: "senderId",
-  as: "user"
-})
+  as: "user",
+});
 
 export default Message;

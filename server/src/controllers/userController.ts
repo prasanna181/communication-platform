@@ -75,6 +75,6 @@ export const getAllUsers = async (req, res) => {
     total: count,
     page,
     perPage: limit,
-    data: rows,
+    users: rows,
   });
 };
