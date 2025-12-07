@@ -43,6 +43,12 @@ export const getAllFriendRequests = async (req, res) => {
       userId: { [Op.ne]: userId },
       status: FREINDSHIP_REQUEST_STATUS.PENDING,
     },
+    include: [
+      {
+        model: User,
+        as: "user",
+      },
+    ],
   });
 
   const requestMadeByUser = await FriendRequest.findAll({
@@ -51,6 +57,12 @@ export const getAllFriendRequests = async (req, res) => {
       friendId: { [Op.ne]: userId },
       status: FREINDSHIP_REQUEST_STATUS.PENDING,
     },
+    include: [
+      {
+        model: User,
+        as: "friend",
+      },
+    ],
   });
 
   return successResponse(
@@ -71,7 +83,6 @@ export const accetpOrRejectFriendship = async (req, res) => {
       friendId: userId,
     },
   });
-
 
   if (!isValidRequest)
     return errorResponse(
@@ -116,44 +127,70 @@ export const getFriendsList = async (req, res) => {
         model: User,
         as: "friend",
       },
+      {
+        model: User,
+        as: "user",
+      },
     ],
+  });
+
+  const cleaned = friends.map((f) => {
+    let friendUser;
+
+    if (f.userId === userId) {
+      // You sent the request → friendId is friend
+      friendUser = f.friend;
+    } else {
+      // Someone else sent you the request → userId is friend
+      friendUser = f.user;
+    }
+
+    return {
+      id: f.id,
+      userId: f.userId,
+      friendId: f.friendId,
+      status: f.status,
+      friend: friendUser,
+      createdAt: f.createdAt,
+      updatedAt: f.updatedAt,
+    };
   });
 
   return successResponse(
     res,
     "All friends list retrieved successfully.",
-    friends
+    cleaned
   );
 };
 
 export const getUserChatList = async (req, res) => {
   const { id: userId } = req.user;
 
- const myConversations = await ConversationMember.findAll({
-   where: { userId },
-   attributes: ["conversationId"],
- });
+  const myConversations = await ConversationMember.findAll({
+    where: { userId },
+    attributes: ["conversationId"],
+  });
 
- const conversationIds = myConversations.map((m) => m.conversationId);
+  const conversationIds = myConversations.map((m) => m.conversationId);
 
-const chatList = await Conversation.findAll({
-  where: { id: { [Op.in]: conversationIds } },
-  include: [
-    {
-      model: ConversationMember,
-      as: "members",
-      include: [
-        {
-          model: User,
-          as: "user",
-          attributes: ["id", "name", "email"],
-        },
-      ],
-    },
-  ],
-});
+  const chatList = await Conversation.findAll({
+    where: { id: { [Op.in]: conversationIds } },
+    include: [
+      {
+        model: ConversationMember,
+        as: "members",
+        include: [
+          {
+            model: User,
+            as: "user",
+            attributes: ["id", "name", "email"],
+          },
+        ],
+      },
+    ],
+  });
 
-
-
-  return successResponse(res, "All user chat list retrieved successfully.", {chatList})
+  return successResponse(res, "All user chat list retrieved successfully.", {
+    chatList,
+  });
 };
