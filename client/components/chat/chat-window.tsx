@@ -60,7 +60,7 @@ const mockMessages: Message[] = [
   },
 ];
 
-export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
+export default function ChatWindow({ chatId }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>(mockMessages);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,7 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const skipAutoScrollRef = useRef(false);
-    const firstLoadRef = useRef(true);
+  const firstLoadRef = useRef(true);
 
   useEffect(() => {
     if (skipAutoScrollRef.current) {
@@ -80,10 +80,22 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
       return;
     }
 
+    // Scroll to bottom on first load
     if (firstLoadRef.current) {
-      scrollToBottom();
-      firstLoadRef.current = false; // only first load
+      firstLoadRef.current = false;
+
+      // Scroll after DOM paint
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+
+      return;
     }
+
+    // Scroll on new messages ONLY
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
   }, [messages]);
 
   // useEffect(() => {
@@ -96,9 +108,10 @@ export default function ChatWindow({ chatId, receiverId }: ChatWindowProps) {
 
   useEffect(() => {
     if (!chatId) return;
+
     setPage(1);
     setHasMore(true);
-      firstLoadRef.current = true;
+    firstLoadRef.current = true;
     getAllMessages(1);
 
     console.log("Joining room:", chatId);

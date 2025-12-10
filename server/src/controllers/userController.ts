@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import User, { USER_ROLES } from "../database/models/user";
 import { loginService, signupService } from "../services/userService";
 import { errorResponse, successResponse } from "../util/apiResponse";
@@ -60,11 +61,14 @@ export const getAllUsers = async (req, res) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.perPage) || 10;
 
+  const {id: userId} = req.user;
+
   const offset = (page - 1) * limit;
 
   const { count, rows } = await User.findAndCountAll({
     where: {
       role: USER_ROLES.USER,
+       id: { [Op.ne]: userId },
     },
     limit,
     offset,

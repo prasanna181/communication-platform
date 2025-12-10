@@ -71,6 +71,8 @@ export default function ChatList({
 
       const otherUser = members.find((u: any) => u.id != currentUserId);
 
+      console.log(d,"...................users")
+
       return {
         chatId: d.id,
         name:

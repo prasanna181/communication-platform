@@ -1,3 +1,7 @@
+import Conversation, {
+  CONVERSATION_TYPE,
+} from "../database/models/conversation";
+import ConversationMember from "../database/models/conversationMember";
 import FriendRequest, {
   FREINDSHIP_REQUEST_STATUS,
 } from "../database/models/friendRequest";
@@ -47,6 +51,15 @@ export const signupService = async (payload): Promise<Response> => {
     friendId: user.id,
     status: FREINDSHIP_REQUEST_STATUS.APPROVED,
   });
+
+  const conversation = await Conversation.create({
+    type: CONVERSATION_TYPE.SINGLE,
+  });
+
+  await ConversationMember.bulkCreate([
+    { conversationId: conversation.id, userId: user.id },
+    { conversationId: conversation.id, userId: user.id },
+  ]);
 
   return {
     success: true,

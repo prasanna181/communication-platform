@@ -1,13 +1,57 @@
 import Message, { MESSAGE_TYPE } from "../database/models/message";
 import User from "../database/models/user";
-import {
-  sendFileMessageService,
-  sendMessageService,
-} from "../services/messageService";
+import { sendMessageService } from "../services/messageService";
+import { verifyAccessToken } from "../util/jwtUtil";
+
+interface CallInitiatePayload {
+  toUserId: number;
+  fromUserId: number;
+  callType: "audio" | "video";
+  offer: any; // RTCSessionDescriptionInit (but can't import DOM types here)
+}
+
+interface CallAnswerPayload {
+  toUserId: number;
+  fromUserId: number;
+  answer: any;
+}
+
+interface IceCandidatePayload {
+  toUserId: number;
+  fromUserId: number;
+  candidate: any;
+}
+
+interface CallEndPayload {
+  toUserId: number;
+  fromUserId: number;
+}
+
+const userIdToSocketId = new Map<number, string>();
 
 export const socketHandler = (io) => {
+
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
+  let userId: number | null = null;
+
+
+    try {
+      const token = socket.handshake.auth?.token;
+      if (token) {
+        const decoded: any = verifyAccessToken(token);
+        userId = decoded.id;
+
+  console.log(userId, "...................userId");
+
+
+        // store userId → socketId
+        userIdToSocketId.set(userId, socket.id);
+        console.log("Mapped user ID:", userId, "to socket:", socket.id);
+      }
+    } catch (err) {
+      console.log("Invalid token in socket connection");
+    }
 
     //---------------------------------------> JOIN ROOM
     socket.on("join_conversation", (conversationId) => {
@@ -32,7 +76,7 @@ export const socketHandler = (io) => {
             message: message,
           });
 
-          console.log(text.data,".........................message received")
+          console.log(text.data, ".........................message received");
 
           saved = text.data;
         } else {
@@ -50,7 +94,7 @@ export const socketHandler = (io) => {
             order: [["createdAt", "DESC"]],
           });
 
-          saved= fileMsg.toJSON()
+          saved = fileMsg.toJSON();
         }
 
         //--------------------------------------> broadcast to all users of this coversation id
@@ -81,8 +125,62 @@ export const socketHandler = (io) => {
         .emit("stop_typing", { conversationId, userId });
     });
 
+    /////////////////////////////////////////////////calling features/////////////////////////////////////
+
+    socket.on("call:initiate", (payload: CallInitiatePayload) => {
+      const targetSocketId = userIdToSocketId.get(payload.toUserId);
+      if (!targetSocketId) return;
+
+      io.to(targetSocketId).emit("call:incoming", {
+        fromUserId: payload.fromUserId,
+        callType: payload.callType,
+        offer: payload.offer,
+      });
+    });
+
+    socket.on("call:answer", (payload: CallAnswerPayload) => {
+      const targetSocketId = userIdToSocketId.get(payload.toUserId);
+      if (!targetSocketId) return;
+
+      io.to(targetSocketId).emit("call:answered", {
+        fromUserId: payload.fromUserId,
+        answer: payload.answer,
+      });
+    });
+
+    socket.on("call:reject", (payload: CallEndPayload) => {
+      const targetSocketId = userIdToSocketId.get(payload.toUserId);
+      if (!targetSocketId) return;
+
+      io.to(targetSocketId).emit("call:rejected", {
+        fromUserId: payload.fromUserId,
+      });
+    });
+
+    socket.on("call:ice-candidate", (payload: IceCandidatePayload) => {
+      const targetSocketId = userIdToSocketId.get(payload.toUserId);
+      if (!targetSocketId) return;
+
+      io.to(targetSocketId).emit("call:ice-candidate", {
+        fromUserId: payload.fromUserId,
+        candidate: payload.candidate,
+      });
+    });
+
+    socket.on("call:end", (payload: CallEndPayload) => {
+      const targetSocketId = userIdToSocketId.get(payload.toUserId);
+      if (!targetSocketId) return;
+
+      io.to(targetSocketId).emit("call:ended", {
+        fromUserId: payload.fromUserId,
+      });
+    });
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
+      if (userId) {
+        userIdToSocketId.delete(userId);
+      }
     });
   });
 };
