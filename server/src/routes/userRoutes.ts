@@ -28,6 +28,6 @@ router.post(
   apiCallWrapper(signup)
 );
 router.post("/login", validator.body(userLoginSchema), apiCallWrapper(login));
-router.get("/all_users", apiCallWrapper(getAllUsers));
+router.get("/all_users", authMiddleware, apiCallWrapper(getAllUsers));
 
 export default router;

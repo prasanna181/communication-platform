@@ -1,13 +1,10 @@
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { Request } from "express";
 
 import User, { USER_ROLES } from "../database/models/user";
+import { verifyAccessToken } from "../util/jwtUtil";
 
 dotenv.config();
-
-const JWT_SECRET =
-  "6b18040e36c6f57e9ea97ad9117d3a28cede52999d15cea49f8a49dd6b81d92bbd04f12327b6881c84f78d098aaa830fed72a7e577ce6c870761a9e410014c0c";
 
 export interface AuthRequest extends Request {
   user?: { id: number; email?: string; role: string };
@@ -23,7 +20,7 @@ export const authMiddleware = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+    const decoded = verifyAccessToken(token);
 
     const user = await User.findByPk(decoded.id);
 
@@ -48,7 +45,7 @@ export const adminMiddleware = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+    const decoded = verifyAccessToken(token);
 
     const user = await User.findByPk(decoded.id);
 
