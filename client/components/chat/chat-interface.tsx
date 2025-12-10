@@ -18,6 +18,8 @@ import { apiCall } from "@/lib/services/api-client";
 import { socket } from "@/lib/services/socket";
 import { Utils } from "@/lib/services/storage";
 import { useRouter } from "next/navigation";
+import { useCallManager } from "@/hooks/useCallManager";
+import { CallModal } from "../calls/callModal";
 
 export default function ChatInterface() {
   const [selectedChat, setSelectedChat] = useState<IChatList | null>(null);
@@ -28,6 +30,7 @@ export default function ChatInterface() {
   const typingTimeoutRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const call = useCallManager();
 
   const handleTyping = (e: any) => {
     const value = e.target.value;
@@ -37,6 +40,10 @@ export default function ChatInterface() {
 
     emitTypingEvent(); // run async work here
   };
+
+  const onStartAudioCall = (userId: any) => call.startCall(userId, "audio");
+
+  const onStartVideoCall = (userId: any) => call.startCall(userId, "video");
 
   const emitTypingEvent = async () => {
     const currentUserId = Number(await Utils.getItem("id"));
@@ -75,7 +82,7 @@ export default function ChatInterface() {
           conversationId: selectedChat?.chatId,
           senderId: currentUserId,
           message,
-          type: 'text'
+          type: "text",
         });
       } catch (error) {
         console.error("Error in sending message", error);
@@ -110,8 +117,6 @@ export default function ChatInterface() {
     });
   };
 
-
-
   const chatDetails: Record<
     string,
     { name: string; status: string; avatar: string }
@@ -143,10 +148,16 @@ export default function ChatInterface() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary">
+              <button
+                onClick={() => onStartAudioCall?.(selectedChat.userId)}
+                className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary cursor-pointer"
+              >
                 <Phone size={20} />
               </button>
-              <button className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary">
+              <button
+                onClick={() => onStartVideoCall?.(selectedChat.userId)}
+                className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary cursor-pointer"
+              >
                 <Video size={20} />
               </button>
               <button className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary">
@@ -158,6 +169,23 @@ export default function ChatInterface() {
           <ChatWindow
             chatId={selectedChat.chatId}
             receiverId={selectedChat.userId}
+          />
+
+          <CallModal
+            isOpen={call.isCallModalOpen}
+            isMaximized={call.isMaximized}
+            callType={call.callType}
+            inCall={call.inCall}
+            isCaller={call.isCaller}
+            incomingCallerName={undefined} // you can pass other user name from parent
+            localStream={call.localStream}
+            remoteStream={call.remoteStream}
+            onAccept={call.acceptCall}
+            onReject={call.rejectCall}
+            onEnd={call.endCall}
+            onToggleMaximize={call.toggleMaximize}
+            onToggleMute={call.muteAudio}
+            onToggleVideo={call.toggleVideo}
           />
 
           {/* Message Input */}
@@ -209,12 +237,6 @@ export default function ChatInterface() {
               />
 
               <div className="flex gap-2">
-                <button className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary">
-                  <Phone size={20} />
-                </button>
-                <button className="p-2 hover:bg-primary-lighter rounded-lg transition-colors text-text-secondary">
-                  <Video size={20} />
-                </button>
                 <button
                   onClick={handleSendMessage}
                   className="p-2 bg-accent hover:bg-accent-hover rounded-lg transition-colors text-white"

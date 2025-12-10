@@ -6,10 +6,15 @@ import { socket } from "@/lib/services/socket";
 import { Utils } from "@/lib/services/storage";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Pagination } from "@/components/chat/pagination"
 
 export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [users, setUsers] = useState<any[]>([]);
+  const [usersPage, setUsersPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [loading, setLoading] = useState(true);
+
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
@@ -22,16 +27,28 @@ export default function FriendsPage() {
       const id = Number(await Utils.getItem("id"));
       setCurrentUserId(id);
 
-      loadUsers();
+      loadUsers(1);
       loadFriendRequests();
       loadFriends();
       setupSocketListeners(id);
     })();
   }, []);
 
-  const loadUsers = async () => {
-    const res = await apiCall({ endPoint: "/users/all_users", method: "GET" });
-    if (res.success) setUsers(res.data.users || []);
+  const loadUsers = async (page = 1) => {
+    const res = await apiCall({
+      endPoint: "/users/all_users",
+      method: "GET",
+      params: { page, perPage: 20 },
+    });
+
+    if (!res.success) return;
+
+    const newUsers = res.data.users || [];
+    const total = res.data.total || 0; // Make sure backend sends this
+
+    setUsers(newUsers);
+    setTotalUsers(total);
+    setUsersPage(page);
   };
 
   const loadFriendRequests = async () => {
@@ -251,7 +268,17 @@ export default function FriendsPage() {
 
       {/* TAB CONTENT */}
       {activeTab === "all" && (
-        <Table rows={users.filter((u) => u.id !== currentUserId)} type="all" />
+        <>
+          <Table
+            rows={users}
+            type="all"
+          />
+          <Pagination
+            usersTotal={totalUsers}
+            usersPage={usersPage}
+            loadUsers={loadUsers}
+          />
+        </>
       )}
 
       {activeTab === "incoming" && (
